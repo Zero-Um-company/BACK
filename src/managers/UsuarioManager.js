@@ -8,7 +8,11 @@ const UsuarioManager = {
         user.senha = hash_password;
         const newUser = new UsuarioModel(user);
         return await newUser.save();
+    },
+
+    getUserByToken: async (token) => {
+        return await UsuarioModel.findOne({ token });
     }
-}
+};
 
 module.exports = UsuarioManager;
