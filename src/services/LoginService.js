@@ -1,5 +1,5 @@
 const loginManager = require('../managers/LoginManager');
-const bcrypt = require('bcrypt');
+const jwtConfig = require('../config/jwtConfig');
 
 const loginService = {
     get_token: async (email, senha) => {
@@ -8,8 +8,7 @@ const loginService = {
             
             await loginManager.verificaSenha(senha, user.senha);
             
-            const salt = await bcrypt.genSalt(10);
-            const token = await bcrypt.hash(user.email, salt);
+            const token = jwtConfig.generateToken(user);
 
             return token;
 
