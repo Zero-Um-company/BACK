@@ -8,12 +8,6 @@ const usuarioSchema = new Schema({
         maxlength: 100,
         required: true,
     },
-    login: {
-        type: String,
-        required: true,
-        unique: true,
-        maxlength: 30
-    },
     senha:{
         type: String,
         required: true,
@@ -41,7 +35,6 @@ const usuarioSchema = new Schema({
     { timestamps: true }
 
 )
-usuarioSchema.index({ login: 1 }, { unique: true });
 usuarioSchema.index({ email: 1 }, { unique: true });
 
 const Usuario = mongoose.model('Usuario', usuarioSchema)
