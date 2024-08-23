@@ -1,5 +1,3 @@
-// Initial Mongodb connection example
-
 const mongoose = require('mongoose')
 require('dotenv').config();
 
