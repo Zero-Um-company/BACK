@@ -1,12 +1,12 @@
 {
-  "name": "ZeroUm - Backend",
+  "name": "ZeroUm_Backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
-},
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -19,6 +19,6 @@
     "mongoose": "^6.10.1"
   },
   "devDependencies": {
-      "nodemon": "^2.0.22"
+    "nodemon": "^2.0.22"
   }
 }
