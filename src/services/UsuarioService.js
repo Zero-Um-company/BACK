@@ -2,9 +2,10 @@ const UsuarioManager = require("../managers/UsuarioManager");
 const bcrypt = require('bcrypt');
 
 const UsuarioService = {
-    criarUsuario: async (user) => {
+    criarUsuario: async (req) => {
         try {
-            return await UsuarioManager.createUser(user);
+            await UsuarioManager.createUser(req.body);
+            await UsuarioManager.updateHistory(req, 'Criação de usuário');
         } catch (error) {
             throw new Error(`Erro ao criar usuário: ${error.message}`);
         }

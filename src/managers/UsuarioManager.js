@@ -31,6 +31,22 @@ const UsuarioManager = {
     token = token.split(" ")[1];
     return jwtConfig.decodeToken(token);
   },
+
+  updateHistory: async (req, action) => {
+    const user = req.body;
+
+    const editor = await UsuarioManager.decodeToken(req.headers.authorization);
+    console.log(editor);
+    const updated_at = new Date().toISOString();
+    const history = { updated_at, editor: editor.id, action };
+
+    return await UsuarioModel.findOneAndUpdate(
+      { email: user.email }, 
+      { $push: { historico: history } }, 
+      { new: true, useFindAndModify: false } 
+    );
+    
+  }
 };
 
 module.exports = UsuarioManager;

@@ -3,7 +3,7 @@ const UsuarioService = require('../services/UsuarioService');
 const UsuarioController = {
     criar_usuario: async (req, res) => {
         try {
-            const usuario = await UsuarioService.criarUsuario(req.body);
+            const usuario = await UsuarioService.criarUsuario(req);
             res.status(201).send({ success: true, message: 'Usuário criado com sucesso', usuario });
         } catch (error) {
             res.status(400).send({ success: false, message: error.message });

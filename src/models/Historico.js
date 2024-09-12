@@ -11,6 +11,10 @@ const HistoricoSchema = new Schema({
         ref: 'Usuario',
         required: true,
     },
+    action: {
+        type: String,
+        required: true,
+    },
 });
 
 const Historico = mongoose.model('Historico', HistoricoSchema);
