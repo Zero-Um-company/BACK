@@ -1,7 +1,12 @@
-const router = require('express').Router();
-const UsuarioController = require('../controllers/UsuarioController');
+const express = require('express');
+const router = express.Router();
+const jwtConfig = require('../config/jwtConfig'); 
+const usuarioController = require('../controllers/UsuarioController');
 
-router.route('/criar')
-    .post((req, res) => UsuarioController.criar_usuario(req, res));
+const usuarioRouter = express.Router();
 
-module.exports = router;
+usuarioRouter.post('/criar', jwtConfig.jwtMiddleware, (req, res) => usuarioController.criar_usuario(req, res));
+usuarioRouter.get('/listar', jwtConfig.jwtMiddleware, (req, res) => usuarioController.listar_usuarios(req, res));
+usuarioRouter.get('/me', jwtConfig.jwtMiddleware, (req, res) => usuarioController.get_me(req, res));
+
+module.exports = usuarioRouter;
