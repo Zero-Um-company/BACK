@@ -1,5 +1,5 @@
 const authManager = require('../managers/authManager');
-const jwtConfig = require('../config/jwtConfig');
+const jwtConfig = require('../config/JWTconfig');
 
 const authService = {
     get_token: async (email, senha) => {

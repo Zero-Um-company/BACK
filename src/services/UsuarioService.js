@@ -1,5 +1,4 @@
-const UsuarioManager = require("../managers/UsuarioManager");
-const bcrypt = require('bcrypt');
+const UsuarioManager = require("../managers/usuarioManager");
 
 const UsuarioService = {
     criarUsuario: async (req) => {

@@ -1,6 +1,6 @@
 const { Usuario: UsuarioModel } = require("../models/Usuario");
 const bcrypt = require("bcrypt");
-const jwtConfig = require("../config/jwtConfig");
+const jwtConfig = require("../config/JWTconfig");
 const UsuarioDTO = require("../dtos/UsuarioDTO");
 const { verify } = require("jsonwebtoken");
 

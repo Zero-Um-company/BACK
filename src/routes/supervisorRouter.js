@@ -1,5 +1,5 @@
 const express = require('express');
-const jwtConfig = require('../config/jwtConfig'); 
+const jwtConfig = require('../config/JWTconfig'); 
 const supervisorController = require('../controllers/supervisorController');
 
 const supervisorRouter = express.Router();
