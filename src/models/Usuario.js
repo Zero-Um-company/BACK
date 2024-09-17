@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { RoleEnum } = require("../utils/enums/RoleEnum");
+const { RoleEnum } = require("../utils/enums/roleEnum");
 const { HistoricoSchema } = require("./Historico");
 
 const { Schema } = mongoose;

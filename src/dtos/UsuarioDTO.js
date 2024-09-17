@@ -1,4 +1,4 @@
-const roleEnum = require("../utils/enums/RoleEnum.js");
+const roleEnum = require("../utils/enums/roleEnum.js");
 
 class UsuarioDTO {
   constructor({ nome, sobrenome, email, telefone, role, senha, user_image }) {
