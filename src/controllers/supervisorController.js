@@ -1,6 +1,6 @@
 const UsuarioService = require('../services/UsuarioService');
 
-const UsuarioController = {
+const supervisorController = {
     criar_usuario: async (req, res) => {
         try {
             const usuario = await UsuarioService.criarUsuario(req);
@@ -18,15 +18,6 @@ const UsuarioController = {
             res.status(400).send({ success: false, message: error.message });
         }
     },
-
-    get_me: async (req, res) => {
-        try {
-            const usuario = await UsuarioService.getUserByToken(req.headers.authorization);
-            res.status(200).send({ success: true, usuario });
-        } catch (error) {
-            res.status(400).send({ success: false, message: error.message });
-        }
-    }
 };
 
-module.exports = UsuarioController;
+module.exports = supervisorController;

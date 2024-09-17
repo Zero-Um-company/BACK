@@ -1,12 +1,12 @@
-const loginManager = require('../managers/LoginManager');
+const authManager = require('../managers/authManager');
 const jwtConfig = require('../config/jwtConfig');
 
-const loginService = {
+const authService = {
     get_token: async (email, senha) => {
         try {
-            const user = await loginManager.verificaEmail(email);
+            const user = await authManager.verificaEmail(email);
             
-            await loginManager.verificaSenha(senha, user.senha);
+            await authManager.verificaSenha(senha, user.senha);
             
             const token = jwtConfig.generateToken(user);
 
@@ -18,4 +18,4 @@ const loginService = {
     }
 };
 
-module.exports = loginService;
+module.exports = authService;

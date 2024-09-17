@@ -2,6 +2,7 @@ const { Usuario: UsuarioModel } = require("../models/Usuario");
 const bcrypt = require("bcrypt");
 const jwtConfig = require("../config/jwtConfig");
 const UsuarioDTO = require("../dtos/UsuarioDTO");
+const { verify } = require("jsonwebtoken");
 
 const UsuarioManager = {
   createUser: async (userDTO) => {
@@ -28,6 +29,9 @@ const UsuarioManager = {
   },
 
   decodeToken: (token) => {
+    if (!token) {
+      throw new Error("Token não fornecido");
+    }
     token = token.split(" ")[1];
     return jwtConfig.decodeToken(token);
   },

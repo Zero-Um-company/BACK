@@ -5,7 +5,7 @@ const UsuarioService = {
     criarUsuario: async (req) => {
         try {
             await UsuarioManager.createUser(req.body);
-            await UsuarioManager.updateHistory(req, 'Criação de usuário');
+            return await UsuarioManager.updateHistory(req, 'Criação de usuário');
         } catch (error) {
             throw new Error(`Erro ao criar usuário: ${error.message}`);
         }

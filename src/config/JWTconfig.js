@@ -22,10 +22,31 @@ class JWTconfig {
             }
         };
 
+        this.jwtSupervisorMiddleware = (req, res, next) => {
+            const authHeader = req.headers.authorization;
+            if (authHeader) {
+                const token = authHeader.split(' ')[1];
+                jwt.verify(token, this.secret, (err, user) => {
+                    if (err) {
+                        return res.status(403).json({ message: 'Token inválido' });
+                    }
+                    if (user.role !== 'supervisor' && user.role !== 'admin') {
+                        return res.status(403).json({ message: 'Acesso negado' });
+                    }
+                    req.user = user;
+                    next();
+                });
+            } else {
+                res.status(401).json({ message: 'Token não fornecido' });
+            }
+        };
+        
+
         this.generateToken = (user) => {
             return jwt.sign({
                 id: user.id,
-                email: user.email
+                email: user.email,
+                role: user.role
             }, this.secret, { expiresIn: this.expiration });  
         };
 

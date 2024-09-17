@@ -1,7 +1,7 @@
 const { Usuario } = require("../models/Usuario");
 const bcrypt = require('bcrypt');
 
-const loginManager = {
+const authManager = {
     verificaEmail: async (email) => {
         if (!email) {
             throw new Error('E-mail é obrigatório');
@@ -29,4 +29,4 @@ const loginManager = {
     }
 };
 
-module.exports = loginManager;
+module.exports = authManager;
