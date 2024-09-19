@@ -33,10 +33,6 @@ const usuarioSchema = new Schema(
       type: [Schema.Types.ObjectId],
       ref: "Usuario",
     },
-    administradores: {
-      type: [Schema.Types.ObjectId],
-      ref: "Usuario",
-    },
     senha: {
       type: String,
       required: true,
@@ -46,12 +42,12 @@ const usuarioSchema = new Schema(
       type: String,
       required: true,
     },
-    historico: {
-      type: [HistoricoSchema],
-      required: false,
-    },
     user_image: {
       type: String,
+      required: false,
+    },
+    historico: {
+      type: [HistoricoSchema],
       required: false,
     },
   },
