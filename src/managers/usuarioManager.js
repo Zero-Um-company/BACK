@@ -38,8 +38,7 @@ const UsuarioManager = {
     const user = req.body;
 
     const editor = await UsuarioManager.decodeToken(req.headers.authorization);
-    const updated_at = new Date().toISOString();
-    const history = { updated_at, editor: editor.id, action };
+    const history = { editor: editor.id, action };
 
     const validatedHistory = await HistoricoValidator.validateAsync(history);
     if (!validatedHistory) {
@@ -59,11 +58,16 @@ const UsuarioManager = {
       throw new Error(validatedUser.error);
     }
 
-    const userToUpdate = await this.getUserBy("email", user.email);
+    const userToUpdate = await UsuarioManager.getUserBy("email", user.email);
     if (!userToUpdate) {
       throw new Error("Usuário não encontrado");
     }
-    return await UsuarioModel.findOneAndUpdate(userToUpdate, user);
+
+    return await UsuarioModel.findOneAndUpdate(
+      { email: user.email },
+      validatedUser,
+      { new: true, useFindAndModify: false }
+    );
   },
 
   deleteUser: async (_id) => {
