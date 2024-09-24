@@ -3,6 +3,8 @@ const UsuarioManager = require("../managers/usuarioManager");
 const UsuarioService = {
     criarUsuario: async (req) => {
         try {
+            await UsuarioManager.verifyCreateRole(req);
+            await UsuarioManager.sendEmail(req);
             await UsuarioManager.createUser(req.body);
             return await UsuarioManager.updateHistory(req, 'Criação de usuário');
         } catch (error) {
