@@ -57,7 +57,6 @@ usuarioSchema.index({ email: 1 }, { unique: true });
 
 const Usuario = mongoose.model("Usuario", usuarioSchema);
 
-Usuario.createIndexes();
 module.exports = {
   Usuario,
   usuarioSchema,

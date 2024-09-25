@@ -4,7 +4,7 @@ const UsuarioService = {
     criarUsuario: async (req) => {
         try {
             await UsuarioManager.verifyCreateRole(req);
-            await UsuarioManager.sendEmail(req);
+            // await UsuarioManager.sendEmail(req); # cuidado com essa linha, pode gerar custos inesperados
             await UsuarioManager.createUser(req.body);
             return await UsuarioManager.updateHistory(req, 'Criação de usuário');
         } catch (error) {
