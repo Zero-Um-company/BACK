@@ -54,6 +54,10 @@ const UsuarioManager = {
   },
 
   updateUser: async (user) => {
+    if (!user.email || user.email === "") {
+      throw new Error("Email não fornecido");
+    }
+
     const validatedUser = await UsuarioValidator.validateAsync(user);
     if (!validatedUser) {
       throw new Error(validatedUser.error);
@@ -103,10 +107,9 @@ const UsuarioManager = {
       from: process.env.EMAIL_USER,
       to: user.email,
       subject: "Cadastro de usuário",
-      text: `Olá ${user.nome}, seu cadastro foi realizado com sucesso!
-      Seu login é: ${user.email}
-      Sua senha é: ${user.senha}
-      `
+      text: `Olá ${user.nome}, seu cadastro foi realizado com sucesso!\n` +
+          `Seu login é: ${user.email}\n` +
+          `Sua senha é: ${user.senha}`
     };
 
     return await Emailconfig.sendMail(mailOptions);

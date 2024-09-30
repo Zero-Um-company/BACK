@@ -21,10 +21,9 @@ class EmailConfig {
             console.log(`E-mail enviado: ${info.response}`);
             return info;
         } catch (error) {
-            console.error(`Erro ao enviar o e-mail: ${error.message}`);
-            throw error;
+            throw new Error(`Erro ao enviar e-mail: ${error.message}`);
         }
     }
 }
 
-module.exports = new EmailConfig();
+module.exports = EmailConfig;

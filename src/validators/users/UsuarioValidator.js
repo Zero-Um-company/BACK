@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi')
 const RoleEnum = require("../../utils/enums/roleEnum");
 
 const UsuarioValidator = Joi.object({

@@ -1,11 +1,12 @@
+require('dotenv').config();
 const request = require('supertest');
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const supervisorController = require('../controllers/supervisorController');
-const { jwtSupervisorMiddleware } = require('../config/JWTconfig');
-const UsuarioService = require('../services/usuarioService');
-const authService = require('../services/authService');
+const supervisorController = require('../../controllers/supervisorController');
+const { jwtSupervisorMiddleware } = require('../../config/JWTconfig');
+const UsuarioService = require('../../services/usuarioService');
+const authService = require('../../services/authService');
 const Math = require('mathjs');
 
 const app = express();
@@ -16,7 +17,7 @@ app.get('/supervisor/listar', supervisorController.listar_usuarios);
 app.put('/supervisor/editar/:id', supervisorController.editar_usuario);
 app.delete('/supervisor/deletar/:id', supervisorController.deletar_usuario);
 
-jest.mock('../services/usuarioService');
+jest.mock('../../services/usuarioService');
 
 let mongoServer;
 let token;
@@ -27,9 +28,9 @@ beforeAll(async () => {
   await mongoose.connect(uri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    loggerLevel: 'error',
   });
-  const user = {
+
+  const mockUser = {
     nome: "Test", 
     sobrenome: "Test", 
     email: "teste_jest@gmail.com", 
@@ -37,10 +38,13 @@ beforeAll(async () => {
     senha: "123456", 
     role: "supervisor", 
     supervisores: []
-  }
+  };
+  jest.spyOn(authService, 'get_token').mockImplementation(() => {
+    return process.env.TEST_TOKEN;
+  });
 
-  await UsuarioService.criarUsuario();
-  token = authService.get_token(user.email, user.senha);
+  UsuarioService.criarUsuario.mockResolvedValue(mockUser); 
+  token = authService.get_token(mockUser.email, mockUser.senha);  
 });
 
 afterAll(async () => {
@@ -80,6 +84,29 @@ describe('Supervisor Controller', () => {
       expect(response.body).toHaveProperty('message', 'Usuário criado com sucesso');
       expect(response.body).toHaveProperty('usuario');
     });
+
+    it('deve falhar ao criar um usuário quando o serviço falha', async () => {
+      UsuarioService.criarUsuario.mockRejectedValueOnce(new Error('Erro ao criar usuário'));
+
+      const i = Math.floor(Math.random() * 1000);
+      const user = {
+        nome: "Test", 
+        sobrenome: "Test", 
+        email: `teste_jest${i}@gmail.com`, 
+        telefone: "61999818046", 
+        senha: "123456", 
+        role: "supervisor", 
+        supervisores: []
+      }
+
+      const response = await request(app)
+        .post('/supervisor/criar')
+        .set('Authorization', `Bearer ${token}`)
+        .send(user);
+
+      expect(response.status).toBe(400); 
+      expect(response.body).toHaveProperty('message', 'Erro ao criar usuário');
+    });
   });
 
   describe('listar_usuarios', () => {
@@ -101,6 +128,17 @@ describe('Supervisor Controller', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('usuarios');
       expect(response.body.usuarios.length).toBeGreaterThan(0);
+    });
+
+    it('deve falhar ao listar usuários quando o serviço falha', async () => {
+      UsuarioService.listarUsuarios.mockRejectedValueOnce(new Error('Erro ao listar usuários'));
+
+      const response = await request(app)
+        .get('/supervisor/listar')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400); 
+      expect(response.body).toHaveProperty('message', 'Erro ao listar usuários');
     });
   });
 
@@ -126,6 +164,30 @@ describe('Supervisor Controller', () => {
       expect(response.body).toHaveProperty('usuario');
       expect(response.body.usuario.email).toBe('novoemail@gmail.com');
     });
+
+    it('deve falhar ao editar um usuário quando o serviço falha', async () => {
+      UsuarioService.editarUsuario.mockRejectedValueOnce(new Error('Erro ao editar usuário'));
+
+      const response = await request(app)
+        .put('/supervisor/editar/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'novoemail@gmail.com' });
+
+      expect(response.status).toBe(400); 
+      expect(response.body).toHaveProperty('message', 'Erro ao editar usuário');
+    });
+
+    it('deve falhar ao editar um usuário com dados inválidos', async () => {
+      UsuarioService.editarUsuario.mockRejectedValueOnce(new Error('Email não fornecido'));
+      
+      const response = await request(app)
+        .put('/supervisor/editar/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({email: ''});
+
+      expect(response.status).toBe(400); 
+      expect(response.body).toHaveProperty('message', 'Email não fornecido');
+    });
   });
 
   describe('deletar_usuario', () => {
@@ -146,6 +208,17 @@ describe('Supervisor Controller', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('usuario');
+    });
+
+    it('deve falhar ao deletar um usuário quando o serviço falha', async () => {
+      UsuarioService.deletarUsuario.mockRejectedValueOnce(new Error('Erro ao deletar usuário'));
+
+      const response = await request(app)
+        .delete('/supervisor/deletar/1')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(400); 
+      expect(response.body).toHaveProperty('message', 'Erro ao deletar usuário');
     });
   });
 });
