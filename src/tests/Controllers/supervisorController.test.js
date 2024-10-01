@@ -3,6 +3,7 @@ const request = require('supertest');
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const jwt = require('jsonwebtoken');
 const supervisorController = require('../../controllers/supervisorController');
 const { jwtSupervisorMiddleware } = require('../../config/JWTconfig');
 const UsuarioService = require('../../services/usuarioService');
@@ -30,6 +31,8 @@ beforeAll(async () => {
     useUnifiedTopology: true,
   });
 
+  token = jwt.sign({ role: 'supervisor' }, process.env.JWT_SECRET || 'secrettest', { expiresIn: '1h' });
+
   const mockUser = {
     nome: "Test", 
     sobrenome: "Test", 
@@ -39,12 +42,8 @@ beforeAll(async () => {
     role: "supervisor", 
     supervisores: []
   };
-  jest.spyOn(authService, 'get_token').mockImplementation(() => {
-    return process.env.TEST_TOKEN;
-  });
 
-  UsuarioService.criarUsuario.mockResolvedValue(mockUser); 
-  token = authService.get_token(mockUser.email, mockUser.senha);  
+  UsuarioService.criarUsuario.mockResolvedValue(mockUser);
 });
 
 afterAll(async () => {
@@ -63,6 +62,19 @@ describe('Supervisor Controller', () => {
       expect(response.body).toHaveProperty('message', 'Token não fornecido');
     });
 
+    it('deve falhar ao criar um usuário com dados inválidos', async () => {
+      const invalidUser = { email: '', senha: '123456', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
+      UsuarioService.criarUsuario.mockRejectedValueOnce(new Error('Email não fornecido'));
+
+      const response = await request(app)
+        .post('/supervisor/criar')
+        .set('Authorization', `Bearer ${token}`)
+        .send(invalidUser);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('message', 'Email não fornecido');
+    });
+
     it('deve criar um usuário com sucesso', async () => {
       const i = Math.floor(Math.random() * 1000);
       const user = {
@@ -73,7 +85,7 @@ describe('Supervisor Controller', () => {
         senha: "123456", 
         role: "supervisor", 
         supervisores: []
-      }
+      };
 
       const response = await request(app)
         .post('/supervisor/criar')
@@ -97,7 +109,7 @@ describe('Supervisor Controller', () => {
         senha: "123456", 
         role: "supervisor", 
         supervisores: []
-      }
+      };
 
       const response = await request(app)
         .post('/supervisor/criar')
