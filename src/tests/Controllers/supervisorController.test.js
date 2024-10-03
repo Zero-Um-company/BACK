@@ -49,7 +49,6 @@ beforeAll(async () => {
 
   await UsuarioService.criarUsuario(req);
   token = await authService.get_token(user_test.email, user_test.senha);
-  console.log(token);
 });
 
 afterAll(async () => {
@@ -132,8 +131,6 @@ describe('Supervisor Controller', () => {
       const response = await request(app)
         .get('/supervisor/listar')
         .set('Authorization', `Bearer ${token}`);
-
-      console.log(response.body);
 
       delete_id = response.body.usuarios[1]._id;
 
