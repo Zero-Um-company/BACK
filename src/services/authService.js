@@ -10,7 +10,11 @@ const authService = {
             
             const token = jwtConfig.generateToken(user);
 
-            return token;
+            res = {
+                payload: token,
+            }
+
+            return res;
 
         } catch (error) {
             throw error;

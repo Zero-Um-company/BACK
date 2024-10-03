@@ -4,13 +4,11 @@ const jwtConfig = require("../config/JWTconfig");
 const UsuarioValidator = require("../validators/users/UsuarioValidator");
 const HistoricoValidator = require("../validators/HistoricoValidator");
 const Emailconfig = require("../config/Emailconfig");
+const UpdateValidator = require("../validators/users/UpdateValidator");
 
 const UsuarioManager = {
   createUser: async (user) => {
     const validatedUser = await UsuarioValidator.validateAsync(user);
-    if (!validatedUser) {
-      throw new Error(validatedUser.error);
-    }
 
     const salt = await bcrypt.genSalt(10);
     validatedUser.senha = await bcrypt.hash(user.senha, salt);
@@ -40,11 +38,7 @@ const UsuarioManager = {
 
     const editor = await UsuarioManager.decodeToken(req.headers.authorization);
     const history = { editor: editor.id, action };
-
     const validatedHistory = await HistoricoValidator.validateAsync(history);
-    if (!validatedHistory) {
-      throw new Error(validatedHistory.error);
-    }
 
     return await UsuarioModel.findOneAndUpdate(
       { email: user.email },
@@ -57,12 +51,7 @@ const UsuarioManager = {
     if (!user.email || user.email === "") {
       throw new Error("Email não fornecido");
     }
-
-    const validatedUser = await UsuarioValidator.validateAsync(user);
-    if (!validatedUser) {
-      throw new Error(validatedUser.error);
-    }
-
+    const validatedUser = await UpdateValidator.validateAsync(user);
     const userToUpdate = await UsuarioManager.getUserBy("email", user.email);
     if (!userToUpdate) {
       throw new Error("Usuário não encontrado");
@@ -92,11 +81,9 @@ const UsuarioManager = {
     const user = await UsuarioManager.decodeToken(req.headers.authorization);
     if (req.body.role === "admin" && user.role !== "admin") {
       throw new Error("Acesso negado");
-    }
-    else if (req.body.role === "supervisor" && user.role !== "admin") {
+    } else if (req.body.role === "supervisor" && user.role !== "admin") {
       throw new Error("Acesso negado");
-    }
-    else {
+    } else {
       return;
     }
   },
@@ -107,13 +94,14 @@ const UsuarioManager = {
       from: process.env.EMAIL_USER,
       to: user.email,
       subject: "Cadastro de usuário",
-      text: `Olá ${user.nome}, seu cadastro foi realizado com sucesso!\n` +
-          `Seu login é: ${user.email}\n` +
-          `Sua senha é: ${user.senha}`
+      text:
+        `Olá ${user.nome}, seu cadastro foi realizado com sucesso!\n` +
+        `Seu login é: ${user.email}\n` +
+        `Sua senha é: ${user.senha}`,
     };
 
     return await Emailconfig.sendMail(mailOptions);
-  }
+  },
 };
 
 module.exports = UsuarioManager;
