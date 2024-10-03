@@ -49,6 +49,7 @@ beforeAll(async () => {
 
   await UsuarioService.criarUsuario(req);
   token = await authService.get_token(user_test.email, user_test.senha);
+  token = token.payload;
 });
 
 afterAll(async () => {

@@ -1,14 +1,54 @@
 const UsuarioService = require('../../services/usuarioService');
 const UsuarioManager = require('../../managers/usuarioManager');
+const authService = require('../../services/authService');
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
-jest.mock('../../managers/usuarioManager');
+let mongoServer;
+let token;
+let delete_id;
+
+beforeAll(async () => {
+  mongoServer = await MongoMemoryServer.create();
+  const uri = mongoServer.getUri();
+  await mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+
+  const user_test = {
+    nome: "Test",
+    sobrenome: "Test",
+    email: "teste_sup@gmail.com",
+    telefone: "61999818046",
+    senha: "123456",
+    role: "admin",
+    supervisores: [],
+  };
+
+  const req = {
+    headers: {
+      authorization: `Bearer ${process.env.TEST_TOKEN}`,
+    },
+    body: user_test,
+  };
+
+  await UsuarioService.criarUsuario(req);
+  token = await authService.get_token(user_test.email, user_test.senha);
+  token = token.payload;
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+  await mongoServer.stop();
+});
 
 describe('UsuarioService', () => {
     describe('criarUsuario', () => {
         it('deve criar um usuário com sucesso', async () => {
             const req = {
                 body: {
-                    email: 'teste@gmail.com',
+                    email: 'testeService@gmail.com',
                     senha: '123456',
                     nome: 'Teste',
                     sobrenome: 'Testes',
@@ -17,16 +57,12 @@ describe('UsuarioService', () => {
                     supervisores: [],
                 },
                 headers: {
-                    authorization: 'Bearer token',
+                    authorization: `Bearer ${token}`,
                 },
             };
 
-            UsuarioManager.verifyCreateRole.mockResolvedValueOnce();
-            UsuarioManager.createUser.mockResolvedValueOnce(req.body);
-            UsuarioManager.updateHistory.mockResolvedValueOnce(req.body);
-
-            const result = await UsuarioService.criarUsuario(req);
-            expect(result).toEqual(req.body);
+            const createdUser = await UsuarioService.criarUsuario(req);
+            expect(createdUser).toHaveProperty('email', req.body.email);
         });
 
         it('deve falhar ao criar um usuário quando verificar papel falha', async () => {
@@ -40,23 +76,20 @@ describe('UsuarioService', () => {
                 },
             };
 
-            UsuarioManager.verifyCreateRole.mockRejectedValueOnce(new Error('Acesso negado'));
-
-            await expect(UsuarioService.criarUsuario(req)).rejects.toThrow('Erro ao criar usuário: Acesso negado');
+            await expect(UsuarioService.criarUsuario(req)).rejects.toThrow('Erro ao criar usuário: Erro ao decodificar token: token');
         });
     });
 
     describe('listarUsuarios', () => {
         it('deve listar usuários com sucesso', async () => {
-            const users = [{ id: '1', email: 'teste@gmail.com' }];
-            UsuarioManager.listUsers.mockResolvedValueOnce(users);
 
             const result = await UsuarioService.listarUsuarios();
-            expect(result).toEqual(users);
+            delete_id = result[1]._id;
+            expect(result).toHaveProperty('length');
         });
 
         it('deve falhar ao listar usuários quando falha', async () => {
-            UsuarioManager.listUsers.mockRejectedValueOnce(new Error('Erro ao listar usuários'));
+            jest.spyOn(UsuarioManager, 'listUsers').mockRejectedValueOnce(new Error('Erro ao listar usuários'));
 
             await expect(UsuarioService.listarUsuarios()).rejects.toThrow('Erro ao listar usuários: Erro ao listar usuários');
         });
@@ -64,24 +97,15 @@ describe('UsuarioService', () => {
 
     describe('getUserByToken', () => {
         it('deve retornar um usuário com base no token', async () => {
-            const token = 'token';
-            const user = { email: 'teste@gmail.com' };
-            const foundUser = { id: '1', email: 'teste@gmail.com' };
 
-            UsuarioManager.decodeToken.mockReturnValueOnce(user);
-            UsuarioManager.getUserBy.mockResolvedValueOnce(foundUser);
-
-            const result = await UsuarioService.getUserByToken(token);
-            expect(result).toEqual(foundUser);
+            const result = await UsuarioService.getUserByToken(`Bearer ${token}`);
+            expect(result).toHaveProperty('email');
         });
 
         it('deve falhar ao recuperar usuário com base no token quando falha', async () => {
-            const token = 'token';
-            UsuarioManager.decodeToken.mockImplementationOnce(() => {
-                throw new Error('Token inválido');
-            });
+            const tokenFail = 'token';
 
-            await expect(UsuarioService.getUserByToken(token)).rejects.toThrow('Erro ao recuperar usuário: Token inválido');
+            await expect(UsuarioService.getUserByToken(tokenFail)).rejects.toThrow('Erro ao recuperar usuário: Erro ao decodificar token: Token não fornecido');
         });
     });
 
@@ -89,19 +113,21 @@ describe('UsuarioService', () => {
         it('deve editar um usuário com sucesso', async () => {
             const req = {
                 body: {
-                    email: 'teste@gmail.com',
-                    nome: 'Novo Nome',
+                    nome: "TESTE integração EDIT",
+                    sobrenome: "Rotas de supervisor",
+                    email: "teste_sup@gmail.com",
+                    telefone: "61948484848",
+                    role: "supervisor",
+                    senha: "senhateste1",
+                    user_image: "https://example.com/imagens/perfil/teste.jpg"
                 },
                 headers: {
-                    authorization: 'Bearer token',
+                    authorization: `Bearer ${token}`,
                 },
             };
 
-            UsuarioManager.updateUser.mockResolvedValueOnce(req.body);
-            UsuarioManager.updateHistory.mockResolvedValueOnce(req.body);
-
             const result = await UsuarioService.editarUsuario(req);
-            expect(result).toEqual(req.body);
+            expect(result).toHaveProperty('email', req.body.email);
         });
 
         it('deve falhar ao editar um usuário quando falha', async () => {
@@ -113,8 +139,7 @@ describe('UsuarioService', () => {
                     authorization: 'Bearer token',
                 },
             };
-
-            UsuarioManager.updateUser.mockRejectedValueOnce(new Error('Erro ao editar usuário'));
+            jest.spyOn(UsuarioManager, 'updateUser').mockRejectedValueOnce(new Error('Erro ao editar usuário'));
 
             await expect(UsuarioService.editarUsuario(req)).rejects.toThrow('Erro ao editar usuário: Erro ao editar usuário');
         });
@@ -124,14 +149,12 @@ describe('UsuarioService', () => {
         it('deve deletar um usuário com sucesso', async () => {
             const req = {
                 body: {
-                    _id: '1',
+                    _id: delete_id,
                 },
             };
 
-            UsuarioManager.deleteUser.mockResolvedValueOnce(req.body);
-
             const result = await UsuarioService.deletarUsuario(req);
-            expect(result).toEqual(req.body);
+            expect(result).toHaveProperty('_id', req.body._id);
         });
 
         it('deve falhar ao deletar um usuário quando falha', async () => {
@@ -141,9 +164,7 @@ describe('UsuarioService', () => {
                 },
             };
 
-            UsuarioManager.deleteUser.mockRejectedValueOnce(new Error('Erro ao deletar usuário'));
-
-            await expect(UsuarioService.deletarUsuario(req)).rejects.toThrow('Erro ao deletar usuário: Erro ao deletar usuário');
+            await expect(UsuarioService.deletarUsuario(req)).rejects.toThrow("Erro ao deletar usuário: Cast to ObjectId failed for value \"1\" (type string) at path \"_id\" for model \"Usuario\"");
         });
     });
 });

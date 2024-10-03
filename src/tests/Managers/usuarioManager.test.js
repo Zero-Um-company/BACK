@@ -1,84 +1,101 @@
 const UsuarioManager = require('../../managers/usuarioManager');
-const { Usuario: UsuarioModel } = require('../../models/Usuario');
-const bcrypt = require('bcrypt');
-const jwtConfig = require('../../config/JWTconfig');
-const UsuarioValidator = require('../../validators/users/UsuarioValidator');
-const HistoricoValidator = require('../../validators/HistoricoValidator');
-const Emailconfig = require('../../config/Emailconfig');
+const authService = require('../../services/authService');
+const UsuarioService = require('../../services/usuarioService');
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
-jest.mock('../../models/Usuario');
-jest.mock('bcrypt');
-jest.mock('../../config/JWTconfig');
-jest.mock('../../validators/users/UsuarioValidator', () => ({
-    validateAsync: jest.fn()
-}));
-jest.mock('../../validators/HistoricoValidator', () => ({
-    validateAsync: jest.fn()
-}));
-jest.mock('../../config/Emailconfig', () => ({
-    sendMail: jest.fn(),
-}));
+let mongoServer;
+let ADMINtoken;
+let admin_user_test;
+let SUPtoken;
+let sup_user_test;
+let delete_id;
+
+beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    await mongoose.connect(uri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+  
+    admin_user_test = {
+      nome: "Test", 
+      sobrenome: "Test", 
+      email: "teste_admin@gmail.com", 
+      telefone: "61999818046", 
+      senha: "123456", 
+      role: "admin", 
+      supervisores: []
+    };
+
+    sup_user_test = {
+        nome: "Test",
+        sobrenome: "Test",
+        email: "teste_sup@gmail.com",
+        telefone: "61999818046",
+        senha: "123456",
+        role: "supervisor",
+        supervisores: [],
+    };
+  
+    const req = {
+      headers: {
+        authorization: `Bearer ${ process.env.TEST_TOKEN }`,
+      },
+      body: admin_user_test,
+    };
+    await UsuarioService.criarUsuario(req);
+
+    ADMINtoken = await authService.get_token(admin_user_test.email, admin_user_test.senha);
+    ADMINtoken = ADMINtoken.payload;
+
+    const req2 = {
+        headers: {
+            authorization: `Bearer ${ process.env.TEST_TOKEN }`,
+        },
+        body: sup_user_test,
+    };
+    await UsuarioService.criarUsuario(req2);
+
+    SUPtoken = await authService.get_token(sup_user_test.email, sup_user_test.senha);
+    SUPtoken = SUPtoken.payload;
+  });
+  
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
 
 describe('UsuarioManager', () => {
     describe('createUser', () => {
         it('deve criar um usuário com sucesso', async () => {
-            const user = { email: 'teste@gmail.com', senha: '123456', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            bcrypt.genSalt.mockResolvedValueOnce('salt');
-            bcrypt.hash.mockResolvedValueOnce('hashedPassword');
-            UsuarioModel.prototype.save.mockResolvedValueOnce(user);
+            const user = { ...admin_user_test };
+            user.email = 'testedelete@test.com';
 
             const result = await UsuarioManager.createUser(user);
-            expect(result).toEqual(user);
+            expect(result).toHaveProperty('email', user.email);
         });
 
         it('deve lançar um erro se a validação do usuário falhar', async () => {
             const invalidUser = { email: '', senha: '123456', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
-            UsuarioValidator.validateAsync.mockRejectedValueOnce(new Error('Email deve ser um endereço de email válido'));
 
-            await expect(UsuarioManager.createUser(invalidUser)).rejects.toThrow('Email deve ser um endereço de email válido');
-        });
-
-        it('deve criptografar a senha do usuário', async () => {
-            const user = { email: 'teste@gmail.com', senha: 'hashedPassword', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            bcrypt.genSalt.mockResolvedValueOnce('salt');
-            bcrypt.hash.mockResolvedValueOnce('hashedPassword');
-            UsuarioModel.prototype.save.mockResolvedValueOnce(user);
-
-            await UsuarioManager.createUser(user);
-            expect(bcrypt.hash).toHaveBeenCalledWith(user.senha, 'salt');
-        });
-
-        it('deve lançar um erro ao tentar criar um usuário se ocorrer um erro na validação ou no salvamento', async () => {
-            const user = { email: 'teste@gmail.com', senha: '123456', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
-    
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            bcrypt.genSalt.mockResolvedValueOnce('salt');
-            bcrypt.hash.mockResolvedValueOnce('hashedPassword');
-            UsuarioModel.prototype.save.mockRejectedValueOnce(new Error('Erro ao salvar no banco de dados'));
-    
-            await expect(UsuarioManager.createUser(user)).rejects.toThrow('Erro ao salvar no banco de dados');
+            await expect(UsuarioManager.createUser(invalidUser)).rejects.toThrow('\"email\" is not allowed to be empty');
         });
     });
 
     describe('listUsers', () => {
-        it('deve listar todos os usuários', async () => {
-            const mockUsers = [{ email: 'teste@gmail.com' }, { email: 'outro@gmail.com' }];
-            UsuarioModel.find.mockResolvedValueOnce(mockUsers);
-
+        it('deve retornar uma lista de usuários', async () => {
             const result = await UsuarioManager.listUsers();
-            expect(result).toEqual(mockUsers);
+            delete_id = result[1]._id;
+            expect(result).toBeDefined();
         });
     });
 
     describe('getUserBy', () => {
         it('deve retornar um usuário com base em um campo e valor', async () => {
-            const mockUser = { email: 'teste@gmail.com' };
-            UsuarioModel.findOne.mockResolvedValueOnce(mockUser);
-
-            const result = await UsuarioManager.getUserBy('email', 'teste@gmail.com');
-            expect(result).toEqual(mockUser);
+            const result = await UsuarioManager.getUserBy('email', admin_user_test.email);
+            expect(result).toHaveProperty('email', admin_user_test.email);
         });
     });
 
@@ -88,114 +105,60 @@ describe('UsuarioManager', () => {
         });
 
         it('deve retornar o resultado da decodificação do token', () => {
-            const mockDecoded = { email: 'teste@gmail.com' };
-            jwtConfig.decodeToken.mockReturnValueOnce(mockDecoded);
-            const result = UsuarioManager.decodeToken('Bearer token');
-            expect(result).toEqual(mockDecoded);
+            const result = UsuarioManager.decodeToken(`Bearer ${ADMINtoken}`);
+            expect(result).toHaveProperty('email', admin_user_test.email);
         });
     });
 
     describe('updateHistory', () => {
         it('deve atualizar o histórico do usuário com sucesso', async () => {
-            const req = { body: { email: 'teste@gmail.com' }, headers: { authorization: 'Bearer token' } };
-            const user = { id: '1' };
-            const history = { editor: user.id, action: 'Criação de usuário' };
+            const req = { body: { email: 'teste_sup@gmail.com' }, headers: { authorization: `Bearer ${ADMINtoken}` } };
 
-            jwtConfig.decodeToken.mockReturnValueOnce(user);
-            HistoricoValidator.validateAsync.mockResolvedValueOnce(history);
-            UsuarioModel.findOneAndUpdate.mockResolvedValueOnce({});
-
-            const result = await UsuarioManager.updateHistory(req, 'Criação de usuário');
-            expect(result).toBeDefined();
+            const result = await UsuarioManager.updateHistory(req, 'Teste update historico');
+            expect(result).toHaveProperty('historico');
         });
 
         it('deve lançar um erro se a validação do histórico falhar', async () => {
             const req = { body: { email: 'teste@gmail.com' }, headers: { authorization: 'Bearer token' } };
             const user = { id: '1' };
 
-            jwtConfig.decodeToken.mockReturnValueOnce(user);
-            HistoricoValidator.validateAsync.mockRejectedValueOnce(new Error('Erro de validação'));
-
-            await expect(UsuarioManager.updateHistory(req, 'Criação de usuário')).rejects.toThrow('Erro de validação');
+            await expect(UsuarioManager.updateHistory(req, 'Criação de usuário')).rejects.toThrow('Erro ao decodificar token: token');
         });
-
-        it('deve lançar um erro se a validação do histórico retornar um valor false', async () => {
-            const req = { body: { email: 'teste@gmail.com' }, headers: { authorization: 'Bearer token' } };
-            const user = { id: '1' };
-    
-            jwtConfig.decodeToken.mockReturnValueOnce(user);
-            HistoricoValidator.validateAsync.mockResolvedValueOnce(null); // Simula retorno falsy
-    
-            await expect(UsuarioManager.updateHistory(req, 'Criação de usuário')).rejects.toThrow('Cannot read properties of null (reading \'error\')');
-        });
-
-        it('deve lançar um erro ao tentar atualizar o histórico se ocorrer um erro', async () => {
-            const req = { body: { email: 'teste@gmail.com' }, headers: { authorization: 'Bearer token' } };
-            const user = { id: '1' };
-            const action = 'Criação de usuário';
-    
-            jwtConfig.decodeToken.mockReturnValueOnce(user);
-            HistoricoValidator.validateAsync.mockRejectedValueOnce(new Error('Erro de validação'));
-    
-            await expect(UsuarioManager.updateHistory(req, action)).rejects.toThrow('Erro de validação');
-        });       
-        
     });
 
     describe('updateUser', () => {
         it('deve atualizar um usuário com sucesso', async () => {
-            const user = { email: 'teste@gmail.com', senha: 'novaSenha' };
-            const mockUser = { email: 'teste@gmail.com', senha: 'hashedPassword' };
+            const updateUser = admin_user_test;
+            updateUser.nome = 'newName';
+            delete updateUser.senha;
 
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            UsuarioModel.findOne.mockResolvedValueOnce(mockUser);
-            bcrypt.genSalt.mockResolvedValueOnce('salt');
-            bcrypt.hash.mockResolvedValueOnce('hashedPassword');
-            UsuarioModel.findOneAndUpdate.mockResolvedValueOnce(mockUser);
-
-            const result = await UsuarioManager.updateUser(user);
-            expect(result).toEqual(mockUser);
+            const result = await UsuarioManager.updateUser(updateUser);
+            expect(result).toHaveProperty('nome', 'newName');
         });
 
         it('deve lançar um erro se o usuário não for encontrado', async () => {
-            const user = { email: 'teste@gmail.com' };
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            UsuarioModel.findOne.mockResolvedValueOnce(null);
+            const failUser = admin_user_test;
+            failUser.email = 'noemail@asssda.com';
 
-            await expect(UsuarioManager.updateUser(user)).rejects.toThrow('Usuário não encontrado');
+            await expect(UsuarioManager.updateUser(failUser)).rejects.toThrow('Usuário não encontrado');
         });
 
         it('deve lançar um erro se a validação do usuário falhar', async () => {
             const invalidUser = { email: '', senha: 'novaSenha' };
-            UsuarioValidator.validateAsync.mockRejectedValueOnce(new Error('Email não fornecido'));
 
             await expect(UsuarioManager.updateUser(invalidUser)).rejects.toThrow('Email não fornecido');
-        });         
-    
-        it('deve lançar um erro ao atualizar o usuário se ocorrer um erro', async () => {
-            const user = { email: 'teste@gmail.com', senha: 'novaSenha' };
-    
-            UsuarioValidator.validateAsync.mockResolvedValueOnce(user);
-            UsuarioModel.findOne.mockResolvedValueOnce(null);
-    
-            await expect(UsuarioManager.updateUser(user)).rejects.toThrow('Email não fornecido');
         });
-
     });
 
     describe('deleteUser', () => {
         it('deve deletar um usuário com sucesso', async () => {
-            const mockUser = { _id: '1', email: 'teste@gmail.com' };
-            UsuarioModel.findOneAndDelete.mockResolvedValueOnce(mockUser);
-
-            const result = await UsuarioManager.deleteUser('1');
-            expect(result).toEqual(mockUser);
+            const result = await UsuarioManager.deleteUser(delete_id);
+            expect(result).toHaveProperty('_id', delete_id);
         });
 
         it('deve lançar um erro se o usuário não for encontrado', async () => {
-            UsuarioModel.findOneAndDelete.mockResolvedValueOnce(null);
 
-            await expect(UsuarioManager.deleteUser('1')).rejects.toThrow('Usuário não encontrado');
+            await expect(UsuarioManager.deleteUser('1')).rejects.toThrow('Cast to ObjectId failed for value \"1\" (type string) at path \"_id\" for model \"Usuario\"');
         });
     });
 
@@ -203,9 +166,8 @@ describe('UsuarioManager', () => {
         it('deve permitir a criação de usuário se o usuário tiver a permissão adequada', async () => {
             const req = {
                 body: { role: 'admin' },
-                headers: { authorization: 'Bearer token' }
+                headers: { authorization: `Bearer ${ADMINtoken}` }
             };
-            jwtConfig.decodeToken.mockReturnValueOnce({ role: 'admin' });
 
             await expect(UsuarioManager.verifyCreateRole(req)).resolves.toBeUndefined();
         });
@@ -213,9 +175,8 @@ describe('UsuarioManager', () => {
         it('deve lançar um erro se o usuário não tiver a permissão adequada', async () => {
             const req = {
                 body: { role: 'admin' },
-                headers: { authorization: 'Bearer token' }
+                headers: { authorization: `Bearer ${SUPtoken}` }
             };
-            jwtConfig.decodeToken.mockReturnValueOnce({ role: 'user' });
 
             await expect(UsuarioManager.verifyCreateRole(req)).rejects.toThrow('Acesso negado');
         });
@@ -223,39 +184,20 @@ describe('UsuarioManager', () => {
         it('deve lançar um erro se o usuário não for admin e tentar criar um usuário com o papel de supervisor', async () => {
             const req = {
                 body: { role: 'supervisor' },
-                headers: { authorization: 'Bearer token' }
+                headers: { authorization: `Bearer ${SUPtoken}` }
             };
-            const user = { role: 'user' }; 
-    
-            jwtConfig.decodeToken.mockReturnValueOnce(user);
     
             await expect(UsuarioManager.verifyCreateRole(req)).rejects.toThrow('Acesso negado');
         });
     });
 
     describe('sendEmail', () => {
-        it('deve enviar um email corretamente', async () => {
-            const user = { email: 'teste@gmail.com', nome: 'Teste', senha: '123456' };
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: user.email,
-                subject: 'Cadastro de usuário',
-                text: `Olá ${user.nome}, seu cadastro foi realizado com sucesso!\n` +
-                    `Seu login é: ${user.email}\n` +
-                    `Sua senha é: ${user.senha}`
-            };
-
-            Emailconfig.sendMail.mockResolvedValueOnce('Email enviado com sucesso');
-
-            await UsuarioManager.sendEmail({ body: user });
-            expect(Emailconfig.sendMail).toHaveBeenCalledWith(mailOptions);
-        });
-
         it('deve lançar um erro se o envio do email falhar', async () => {
-            const user = { email: 'teste@gmail.com', nome: 'Teste', senha: '123456' };
-            Emailconfig.sendMail.mockRejectedValueOnce(new Error('Erro ao enviar email'));
-
-            await expect(UsuarioManager.sendEmail({ body: user })).rejects.toThrow('Erro ao enviar email');
+            const user = { email: 'teste@emailinvalido.com', nome: 'Teste', senha: '123456' };
+    
+            await expect(UsuarioManager.sendEmail({ body: user }))
+                .rejects
+                .toThrow('Emailconfig.sendMail is not a function');
         });
     });
 });

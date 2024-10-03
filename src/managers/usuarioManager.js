@@ -4,20 +4,17 @@ const jwtConfig = require("../config/JWTconfig");
 const UsuarioValidator = require("../validators/users/UsuarioValidator");
 const HistoricoValidator = require("../validators/HistoricoValidator");
 const Emailconfig = require("../config/Emailconfig");
+const UpdateValidator = require("../validators/users/UpdateValidator");
 
 const UsuarioManager = {
   createUser: async (user) => {
-    try {
-      const validatedUser = await UsuarioValidator.validateAsync(user);
+    const validatedUser = await UsuarioValidator.validateAsync(user);
 
-      const salt = await bcrypt.genSalt(10);
-      validatedUser.senha = await bcrypt.hash(user.senha, salt);
+    const salt = await bcrypt.genSalt(10);
+    validatedUser.senha = await bcrypt.hash(user.senha, salt);
 
-      const newUser = new UsuarioModel(validatedUser);
-      return await newUser.save();
-    } catch (error) {
-      throw new Error(error.message || "Erro ao criar usuário");
-    }
+    const newUser = new UsuarioModel(validatedUser);
+    return await newUser.save();
   },
 
   listUsers: async () => {
@@ -41,48 +38,35 @@ const UsuarioManager = {
 
     const editor = await UsuarioManager.decodeToken(req.headers.authorization);
     const history = { editor: editor.id, action };
+    const validatedHistory = await HistoricoValidator.validateAsync(history);
 
-    try {
-      const validatedHistory = await HistoricoValidator.validateAsync(history);
-      if (!validatedHistory) {
-        throw new Error(validatedHistory.error);
-      }
-
-      return await UsuarioModel.findOneAndUpdate(
-        { email: user.email },
-        { $push: { historico: validatedHistory } },
-        { new: true, useFindAndModify: false }
-      );
-    } catch (error) {
-      throw new Error(error.message || "Erro ao atualizar histórico");
-    }
+    return await UsuarioModel.findOneAndUpdate(
+      { email: user.email },
+      { $push: { historico: validatedHistory } },
+      { new: true, useFindAndModify: false }
+    );
   },
 
   updateUser: async (user) => {
     if (!user.email || user.email === "") {
       throw new Error("Email não fornecido");
     }
-
-    try {
-      const validatedUser = await UsuarioValidator.validateAsync(user);
-      const userToUpdate = await UsuarioManager.getUserBy("email", user.email);
-      if (!userToUpdate) {
-        throw new Error("Usuário não encontrado");
-      }
-
-      if (user.senha) {
-        const salt = await bcrypt.genSalt(10);
-        validatedUser.senha = await bcrypt.hash(user.senha, salt);
-      }
-
-      return await UsuarioModel.findOneAndUpdate(
-        { email: user.email },
-        validatedUser,
-        { new: true, useFindAndModify: false }
-      );
-    } catch (error) {
-      throw new Error(error.message || "Erro ao atualizar usuário");
+    const validatedUser = await UpdateValidator.validateAsync(user);
+    const userToUpdate = await UsuarioManager.getUserBy("email", user.email);
+    if (!userToUpdate) {
+      throw new Error("Usuário não encontrado");
     }
+
+    if (user.senha) {
+      const salt = await bcrypt.genSalt(10);
+      validatedUser.senha = await bcrypt.hash(user.senha, salt);
+    }
+
+    return await UsuarioModel.findOneAndUpdate(
+      { email: user.email },
+      validatedUser,
+      { new: true, useFindAndModify: false }
+    );
   },
 
   deleteUser: async (_id) => {
