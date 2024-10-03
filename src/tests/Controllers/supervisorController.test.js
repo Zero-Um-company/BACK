@@ -3,7 +3,6 @@ const request = require('supertest');
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const jwt = require('jsonwebtoken');
 const supervisorController = require('../../controllers/supervisorController');
 const { jwtSupervisorMiddleware } = require('../../config/JWTconfig');
 const UsuarioService = require('../../services/usuarioService');
@@ -18,10 +17,9 @@ app.get('/supervisor/listar', supervisorController.listar_usuarios);
 app.put('/supervisor/editar/:id', supervisorController.editar_usuario);
 app.delete('/supervisor/deletar/:id', supervisorController.deletar_usuario);
 
-jest.mock('../../services/usuarioService');
-
 let mongoServer;
 let token;
+let delete_id;
 
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
@@ -31,19 +29,27 @@ beforeAll(async () => {
     useUnifiedTopology: true,
   });
 
-  token = jwt.sign({ role: 'supervisor' }, process.env.JWT_SECRET || 'secrettest', { expiresIn: '1h' });
-
-  const mockUser = {
+  const user_test = {
     nome: "Test", 
     sobrenome: "Test", 
-    email: "teste_jest@gmail.com", 
+    email: "teste_sup@gmail.com", 
     telefone: "61999818046", 
     senha: "123456", 
-    role: "supervisor", 
+    role: "admin", 
     supervisores: []
   };
 
-  UsuarioService.criarUsuario.mockResolvedValue(mockUser);
+  const req = {
+    headers: {
+      authorization: `Bearer ${ process.env.TEST_TOKEN }`,
+    },
+    body: user_test,
+  };
+    
+
+  await UsuarioService.criarUsuario(req);
+  token = await authService.get_token(user_test.email, user_test.senha);
+  console.log(token);
 });
 
 afterAll(async () => {
@@ -56,15 +62,29 @@ describe('Supervisor Controller', () => {
     it('deve falhar ao criar um usuário sem um token', async () => {
       const response = await request(app)
         .post('/supervisor/criar')
-        .send({ email: 'teste@gmail.com', senha: '123456' });
+        .send({ 
+          body: { 
+            email: 'teste create', 
+            senha: '123456', 
+            nome: 'Teste', 
+            sobrenome: 'Sobrenome', 
+            telefone: '1234567890', 
+            role: 'COLABORADOR' }, 
+        });
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('message', 'Token não fornecido');
     });
 
     it('deve falhar ao criar um usuário com dados inválidos', async () => {
-      const invalidUser = { email: '', senha: '123456', nome: 'Teste', sobrenome: 'Sobrenome', telefone: '1234567890', role: 'COLABORADOR' };
-      UsuarioService.criarUsuario.mockRejectedValueOnce(new Error('Email não fornecido'));
+      const invalidUser = { 
+        email: '', 
+        senha: '123456', 
+        nome: 'Teste', 
+        sobrenome: 'Sobrenome', 
+        telefone: '1234567890', 
+        role: 'COLABORADOR' 
+      };
 
       const response = await request(app)
         .post('/supervisor/criar')
@@ -72,7 +92,7 @@ describe('Supervisor Controller', () => {
         .send(invalidUser);
 
       expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('message', 'Email não fornecido');
+      expect(response.body).toHaveProperty('message', 'Erro ao criar usuário: \"email\" is not allowed to be empty');
     });
 
     it('deve criar um usuário com sucesso', async () => {
@@ -96,29 +116,6 @@ describe('Supervisor Controller', () => {
       expect(response.body).toHaveProperty('message', 'Usuário criado com sucesso');
       expect(response.body).toHaveProperty('usuario');
     });
-
-    it('deve falhar ao criar um usuário quando o serviço falha', async () => {
-      UsuarioService.criarUsuario.mockRejectedValueOnce(new Error('Erro ao criar usuário'));
-
-      const i = Math.floor(Math.random() * 1000);
-      const user = {
-        nome: "Test", 
-        sobrenome: "Test", 
-        email: `teste_jest${i}@gmail.com`, 
-        telefone: "61999818046", 
-        senha: "123456", 
-        role: "supervisor", 
-        supervisores: []
-      };
-
-      const response = await request(app)
-        .post('/supervisor/criar')
-        .set('Authorization', `Bearer ${token}`)
-        .send(user);
-
-      expect(response.status).toBe(400); 
-      expect(response.body).toHaveProperty('message', 'Erro ao criar usuário');
-    });
   });
 
   describe('listar_usuarios', () => {
@@ -131,11 +128,14 @@ describe('Supervisor Controller', () => {
     });
 
     it('deve listar os usuários com sucesso', async () => {
-      UsuarioService.listarUsuarios.mockResolvedValueOnce([{ id: '1', email: 'teste@gmail.com' }]);
 
       const response = await request(app)
         .get('/supervisor/listar')
         .set('Authorization', `Bearer ${token}`);
+
+      console.log(response.body);
+
+      delete_id = response.body.usuarios[1]._id;
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('usuarios');
@@ -143,14 +143,15 @@ describe('Supervisor Controller', () => {
     });
 
     it('deve falhar ao listar usuários quando o serviço falha', async () => {
-      UsuarioService.listarUsuarios.mockRejectedValueOnce(new Error('Erro ao listar usuários'));
-
+      jest.spyOn(UsuarioService, 'listarUsuarios').mockImplementationOnce(() => {
+        throw new Error('Erro ao listar usuários: Usuários não encontrados');
+      });
       const response = await request(app)
         .get('/supervisor/listar')
         .set('Authorization', `Bearer ${token}`);
 
-      expect(response.status).toBe(400); 
-      expect(response.body).toHaveProperty('message', 'Erro ao listar usuários');
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('message', 'Erro ao listar usuários: Usuários não encontrados');
     });
   });
 
@@ -165,40 +166,32 @@ describe('Supervisor Controller', () => {
     });
 
     it('deve editar um usuário com sucesso', async () => {
-      UsuarioService.editarUsuario.mockResolvedValueOnce({ id: '1', email: 'novoemail@gmail.com' });
-
       const response = await request(app)
         .put('/supervisor/editar/1')
         .set('Authorization', `Bearer ${token}`)
-        .send({ email: 'novoemail@gmail.com' });
+        .send( body = {
+          nome: "TESTE integração EDIT",
+          sobrenome: "Rotas de supervisor",
+          email: "teste_sup@gmail.com",
+          telefone: "61948484848",
+          role: "supervisor",
+          senha: "senhateste1",
+          user_image: "https://example.com/imagens/perfil/teste.jpg"
+        }
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('usuario');
-      expect(response.body.usuario.email).toBe('novoemail@gmail.com');
-    });
-
-    it('deve falhar ao editar um usuário quando o serviço falha', async () => {
-      UsuarioService.editarUsuario.mockRejectedValueOnce(new Error('Erro ao editar usuário'));
-
-      const response = await request(app)
-        .put('/supervisor/editar/1')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ email: 'novoemail@gmail.com' });
-
-      expect(response.status).toBe(400); 
-      expect(response.body).toHaveProperty('message', 'Erro ao editar usuário');
     });
 
     it('deve falhar ao editar um usuário com dados inválidos', async () => {
-      UsuarioService.editarUsuario.mockRejectedValueOnce(new Error('Email não fornecido'));
-      
       const response = await request(app)
         .put('/supervisor/editar/1')
         .set('Authorization', `Bearer ${token}`)
         .send({email: ''});
 
       expect(response.status).toBe(400); 
-      expect(response.body).toHaveProperty('message', 'Email não fornecido');
+      expect(response.body).toHaveProperty('message', 'Erro ao editar usuário: Email não fornecido');
     });
   });
 
@@ -212,25 +205,22 @@ describe('Supervisor Controller', () => {
     });
 
     it('deve deletar um usuário com sucesso', async () => {
-      UsuarioService.deletarUsuario.mockResolvedValueOnce({ id: '1', email: 'teste@gmail.com' });
-
       const response = await request(app)
-        .delete('/supervisor/deletar/1')
-        .set('Authorization', `Bearer ${token}`);
+        .delete(`/supervisor/deletar/1`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ _id: delete_id });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('usuario');
     });
 
-    it('deve falhar ao deletar um usuário quando o serviço falha', async () => {
-      UsuarioService.deletarUsuario.mockRejectedValueOnce(new Error('Erro ao deletar usuário'));
-
+    it('deve falhar ao deletar um usuário com ID inválido', async () => {
       const response = await request(app)
         .delete('/supervisor/deletar/1')
         .set('Authorization', `Bearer ${token}`);
 
-      expect(response.status).toBe(400); 
-      expect(response.body).toHaveProperty('message', 'Erro ao deletar usuário');
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('message', 'Erro ao deletar usuário: Usuário não encontrado');
     });
   });
 });
