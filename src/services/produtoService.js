@@ -22,12 +22,28 @@ const ProdutoService = {
     deletarProduto: async (req) => {
         try {
             const { id } = req.params;
-            console.log(id);
             return await ProdutoManager.deleteProduct(id);
         } catch (error) {
             throw new Error(`Erro ao deletar produto: ${error.message}.`);
         }
     },
+    editarResponsaveis: async (req) => {
+        try {
+            const { id } = req.params;
+            const { responsaveis, remove } = req.body;
+            return await ProdutoManager.updateResponsible(id,responsaveis,remove);
+        } catch (error) {
+            throw new Error(`Erro ao editar responsáveis: ${error.message}`);
+        }
+    },
+    getProdutos: async (req) => {
+        const { userId } = req.body;
+        try {
+            return await ProdutoManager.getAllProducts(userId);
+        } catch (error) {
+            throw new Error(`Erro ao buscar produtos: ${error.message}`);
+        }
+    }
 };
 
 module.exports = ProdutoService;
