@@ -41,6 +41,14 @@ const ProdutoController = {
         } catch (error) {
             res.status(400).send({ success: false, message: error.message });
         }
+    },
+    altera_status: async (req, res) => {
+        try {
+            const product = await ProdutoService.alteraStatus(req);
+            res.status(200).send({ success: true, message: 'Status alterado com sucesso.', product });
+        } catch (error) {
+            res.status(400).send({ success: false, message: error.message });
+        }
     }
 };
 
