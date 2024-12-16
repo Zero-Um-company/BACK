@@ -1,5 +1,6 @@
 const { Form } = require('../models/Form');
 const formValidator = require('../validators/formValidator');
+const updateFormValidator = require('../validators/updateForm');
 
 const formManager = {
     createForm: async (form) => {
@@ -21,16 +22,16 @@ const formManager = {
         return await Form.find();
     },
     updateForm: async (newForm, id) => {
-        const { error, value } = formValidator.validate(newForm);
+        const { error, value } = updateFormValidator.validate(newForm);
         if (error) {
             throw new Error(`Erro de validação: ${error.details.map(e => e.message).join(", ")}`);
         }
-        const form = await Form.findById(id);
+        const oldForm = await Form.findById(id);
         if (!oldForm) {
             throw new Error('Formulário não encontrado');
         }
-        form.set(value);
-        return await form.save();
+        oldForm.set(value);
+        return await oldForm.save();
     },
     deleteForm: async (id) => {
         const deletedForm = await Form.findById(id);
