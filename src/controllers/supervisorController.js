@@ -18,7 +18,7 @@ const supervisorController = {
 
   listar_usuarios: async (req, res) => {
     try {
-      const usuarios = await UsuarioService.listarUsuarios();
+      const usuarios = await UsuarioService.listarUsuarios(req.query);
       res.status(200).send({ success: true, usuarios });
     } catch (error) {
       res.status(400).send({ success: false, message: error.message });

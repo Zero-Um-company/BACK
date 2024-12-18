@@ -5,6 +5,7 @@ const UsuarioValidator = require("../validators/users/UsuarioValidator");
 const HistoricoValidator = require("../validators/HistoricoValidator");
 const Emailconfig = require("../config/Emailconfig");
 const UpdateValidator = require("../validators/users/UpdateValidator");
+const { ADMIN, SUPERVISOR, COLABORADOR } = require("../utils/enums/roleEnum");
 
 const UsuarioManager = {
   createUser: async (user) => {
@@ -17,12 +18,26 @@ const UsuarioManager = {
     return await newUser.save();
   },
 
-  listUsers: async () => {
-    return await UsuarioModel.find();
-  },
+  filterUsers: async (params) => {
+    const allowedFields = [
+      "_id",
+      "nome",
+      "sobrenome",
+      "email",
+      "telefone",
+      "role",
+      "supervisores",
+      "administradores",
+    ];
+    const filters = {};
 
-  getUserBy: async (field, value) => {
-    return await UsuarioModel.findOne({ [`${field}`]: value });
+    Object.keys(params).forEach((key) => {
+      if (allowedFields.includes(key)) {
+        filters[key] = params[key];
+      }
+    });
+    
+    return await UsuarioModel.find(filters);
   },
 
   decodeToken: (token) => {
@@ -49,25 +64,28 @@ const UsuarioManager = {
 
   updateUser: async (user) => {
     if (!user.email || user.email === "") {
-      throw new Error("Email não fornecido");
+        throw new Error("Email não fornecido");
     }
+
     const validatedUser = await UpdateValidator.validateAsync(user);
-    const userToUpdate = await UsuarioManager.getUserBy("email", user.email);
+    const userToUpdate = await UsuarioModel.findOne({ email: user.email });
+
     if (!userToUpdate) {
-      throw new Error("Usuário não encontrado");
+        throw new Error("Usuário não encontrado");
     }
 
     if (user.senha) {
-      const salt = await bcrypt.genSalt(10);
-      validatedUser.senha = await bcrypt.hash(user.senha, salt);
+        const salt = await bcrypt.genSalt(10);
+        validatedUser.senha = await bcrypt.hash(user.senha, salt);
     }
 
     return await UsuarioModel.findOneAndUpdate(
-      { email: user.email },
-      validatedUser,
-      { new: true, useFindAndModify: false }
-    );
+        { email: user.email },
+        validatedUser,
+        { new: true, useFindAndModify: false }
+      );
   },
+
 
   deleteUser: async (_id) => {
     const userDeleted = await UsuarioModel.findOneAndDelete({ _id });
