@@ -81,33 +81,58 @@ describe('UsuarioService', () => {
     });
 
     describe('listarUsuarios', () => {
-        it('deve listar usuários com sucesso', async () => {
+        it('deve listar todos os usuários com sucesso quando nenhum parâmetro é fornecido', async () => {
+            const params = '';
+            const result = await UsuarioService.listarUsuarios(params);
 
-            const result = await UsuarioService.listarUsuarios();
-            delete_id = result[1]._id;
+            expect(Array.isArray(result)).toBe(true);
             expect(result).toHaveProperty('length');
+            if (result.length > 0) {
+                expect(result[0]).toHaveProperty('nome');
+                expect(result[0]).toHaveProperty('email');
+            }
         });
 
-        it('deve falhar ao listar usuários quando falha', async () => {
-            jest.spyOn(UsuarioManager, 'listUsers').mockRejectedValueOnce(new Error('Erro ao listar usuários'));
+        it('deve listar usuários com sucesso usando parâmetros de filtro', async () => {
+            const params = { role: 'admin' };
+            const result = await UsuarioService.listarUsuarios(params);
 
-            await expect(UsuarioService.listarUsuarios()).rejects.toThrow('Erro ao listar usuários: Erro ao listar usuários');
+            expect(Array.isArray(result)).toBe(true);
+            result.forEach((user) => {
+                expect(user).toHaveProperty('role', 'admin');
+            });
+        });
+
+        it('deve retornar uma lista vazia quando nenhum usuário corresponde ao filtro', async () => {
+            const params = { nome: 'Inexistente' };
+            const result = await UsuarioService.listarUsuarios(params);
+
+            expect(Array.isArray(result)).toBe(true);
+            expect(result.length).toBe(0);
+        });
+
+        it('deve lançar um erro ao listar usuários quando ocorre uma falha', async () => {
+            jest.spyOn(UsuarioManager, 'filterUsers').mockRejectedValueOnce(new Error('Erro ao listar usuários'));
+
+            const params = '';
+            await expect(UsuarioService.listarUsuarios(params)).rejects.toThrow('Erro ao listar usuários');
         });
     });
 
     describe('getUserByToken', () => {
         it('deve retornar um usuário com base no token', async () => {
-
             const result = await UsuarioService.getUserByToken(`Bearer ${token}`);
-            expect(result).toHaveProperty('email');
+            expect(Array.isArray(result)).toBe(true);
+            expect(result[0]).toHaveProperty('_id');
         });
-
+    
         it('deve falhar ao recuperar usuário com base no token quando falha', async () => {
             const tokenFail = 'token';
-
+    
             await expect(UsuarioService.getUserByToken(tokenFail)).rejects.toThrow('Erro ao recuperar usuário: Erro ao decodificar token: Token não fornecido');
         });
     });
+    
 
     describe('editarUsuario', () => {
         it('deve editar um usuário com sucesso', async () => {
@@ -147,24 +172,27 @@ describe('UsuarioService', () => {
 
     describe('deletarUsuario', () => {
         it('deve deletar um usuário com sucesso', async () => {
-            const req = {
-                body: {
-                    _id: delete_id,
-                },
-            };
-
+            // Criar um novo usuário antes do teste
+            const user = await UsuarioManager.createUser({
+                nome: "Teste Deletar",
+                sobrenome: "Exclusão",
+                email: "delete_test@gmail.com",
+                telefone: "61999818047",
+                senha: "123456",
+                role: "admin",
+            });
+            delete_id = user._id;
+    
+            const req = { body: { _id: delete_id } };
             const result = await UsuarioService.deletarUsuario(req);
-            expect(result).toHaveProperty('_id', req.body._id);
+    
+            expect(result).toHaveProperty('_id', delete_id);
         });
-
-        it('deve falhar ao deletar um usuário quando falha', async () => {
-            const req = {
-                body: {
-                    _id: '1',
-                },
-            };
-
-            await expect(UsuarioService.deletarUsuario(req)).rejects.toThrow("Erro ao deletar usuário: Cast to ObjectId failed for value \"1\" (type string) at path \"_id\" for model \"Usuario\"");
+    
+        it('deve falhar ao deletar um usuário quando o ID é inválido', async () => {
+            const req = { body: { _id: '000000000000000000000000' } };
+    
+            await expect(UsuarioService.deletarUsuario(req)).rejects.toThrow('Erro ao deletar usuário: Usuário não encontrado');
         });
-    });
+    });    
 });

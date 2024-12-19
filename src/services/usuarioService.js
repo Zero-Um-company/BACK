@@ -12,18 +12,17 @@ const UsuarioService = {
         }
     },
 
-    listarUsuarios: async () => {
-        try {
-            return await UsuarioManager.listUsers();
-        } catch (error) {
-            throw new Error(`Erro ao listar usuários: ${error.message}`);
-        }
+    listarUsuarios: async (params) => {
+        return UsuarioManager.filterUsers(params)
     },
 
     getUserByToken: async (token) => {
         try {
             const user = UsuarioManager.decodeToken(token);
-            return await UsuarioManager.getUserBy('email', user.email);
+            const params = {
+                "email": user.email, 
+            }
+            return await UsuarioManager.filterUsers(params);
         } catch (error) {
             throw new Error(`Erro ao recuperar usuário: ${error.message}`);
         }

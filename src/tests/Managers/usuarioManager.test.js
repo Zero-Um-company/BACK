@@ -20,13 +20,13 @@ beforeAll(async () => {
     });
   
     admin_user_test = {
-      nome: "Test", 
-      sobrenome: "Test", 
-      email: "teste_admin@gmail.com", 
-      telefone: "61999818046", 
-      senha: "123456", 
-      role: "admin", 
-      supervisores: []
+        nome: "Test", 
+        sobrenome: "Test", 
+        email: "teste_admin@gmail.com", 
+        telefone: "61999818046", 
+        senha: "123456", 
+        role: "admin", 
+        supervisores: []
     };
 
     sup_user_test = {
@@ -84,18 +84,36 @@ describe('UsuarioManager', () => {
         });
     });
 
-    describe('listUsers', () => {
-        it('deve retornar uma lista de usuários', async () => {
-            const result = await UsuarioManager.listUsers();
-            delete_id = result[1]._id;
-            expect(result).toBeDefined();
+    describe('filterUsers', () => {
+        it('deve retornar usuários filtrados corretamente', async () => {
+            const filters = { nome: 'Test', role: 'admin' };
+            const result = await UsuarioManager.filterUsers(filters);
+            expect(result).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        nome: 'Test',
+                        role: 'admin',
+                    }),
+                ])
+            );
         });
-    });
 
-    describe('getUserBy', () => {
-        it('deve retornar um usuário com base em um campo e valor', async () => {
-            const result = await UsuarioManager.getUserBy('email', admin_user_test.email);
-            expect(result).toHaveProperty('email', admin_user_test.email);
+        it('deve retornar vazio se nenhum usuário corresponder aos filtros', async () => {
+            const filters = { nome: 'Inexistente' };
+            const result = await UsuarioManager.filterUsers(filters);
+            expect(result).toEqual([]);
+        });
+
+        it('deve ignorar campos inválidos no filtro', async () => {
+            const filters = { nome: 'Test', invalido: 'campo' };
+            const result = await UsuarioManager.filterUsers(filters);
+            expect(result).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        nome: 'Test',
+                    }),
+                ])
+            );
         });
     });
 
@@ -137,11 +155,11 @@ describe('UsuarioManager', () => {
         });
 
         it('deve lançar um erro se o usuário não for encontrado', async () => {
-            const failUser = admin_user_test;
-            failUser.email = 'noemail@asssda.com';
-
+            const failUser = { email: 'noemail@asssda.com', nome: 'Teste' };
+        
             await expect(UsuarioManager.updateUser(failUser)).rejects.toThrow('Usuário não encontrado');
         });
+        
 
         it('deve lançar um erro se a validação do usuário falhar', async () => {
             const invalidUser = { email: '', senha: 'novaSenha' };
@@ -150,17 +168,30 @@ describe('UsuarioManager', () => {
         });
     });
 
-    describe('deleteUser', () => {
+    describe('deletarUsuario', () => {
         it('deve deletar um usuário com sucesso', async () => {
-            const result = await UsuarioManager.deleteUser(delete_id);
-            expect(result).toHaveProperty('_id', delete_id);
+            // Criar um usuário específico para o teste de exclusão
+            const user = await UsuarioManager.createUser({
+                nome: "Teste Deletar",
+                sobrenome: "Exclusão",
+                email: "delete_test_user@gmail.com",
+                telefone: "61999818047",
+                senha: "123456",
+                role: "supervisor",
+            });
+    
+            const req = { body: { _id: user._id } };
+            const result = await UsuarioService.deletarUsuario(req);
+    
+            expect(result).toHaveProperty('_id', user._id);
         });
-
-        it('deve lançar um erro se o usuário não for encontrado', async () => {
-
-            await expect(UsuarioManager.deleteUser('1')).rejects.toThrow('Cast to ObjectId failed for value \"1\" (type string) at path \"_id\" for model \"Usuario\"');
+    
+        it('deve falhar ao deletar um usuário quando o ID é inválido', async () => {
+            const req = { body: { _id: '000000000000000000000000' } };
+    
+            await expect(UsuarioService.deletarUsuario(req)).rejects.toThrow('Erro ao deletar usuário: Usuário não encontrado');
         });
-    });
+    });      
 
     describe('verifyCreateRole', () => {
         it('deve permitir a criação de usuário se o usuário tiver a permissão adequada', async () => {
